@@ -1,0 +1,6 @@
+[submodule "3party/metal-cpp-rendering-boilerplate"]
+	path = 3party/metal-cpp-rendering-boilerplate
+	url = https://github.com/rokuz/metal-cpp-rendering-boilerplate
+[submodule "metal/3party/metal-cpp-rendering-boilerplate"]
+	path = metal/3party/metal-cpp-rendering-boilerplate
+	url = https://github.com/rokuz/metal-cpp-rendering-boilerplate
