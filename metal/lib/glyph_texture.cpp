@@ -24,8 +24,7 @@ namespace sdf::gpu {
 namespace {
 // https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 uint32_t nextPowerOf2(uint32_t v) {
-  if (v == 0)
-    return 1;
+  if (v == 0) return 1;
   v--;
   v |= v >> 1;
   v |= v >> 2;
@@ -35,69 +34,68 @@ uint32_t nextPowerOf2(uint32_t v) {
   v++;
   return v;
 }
-} // namespace
+}  // namespace
 
 // static
-MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
-                                     MTL::CommandQueue *commandQueue,
-                                     GlyphSet const &glyphSet) {
+MTL::Texture * GlyphTexture::generate(MTL::Device * const device,
+                                      MTL::CommandQueue * const commandQueue,
+                                      MTL::Library * library,
+                                      GlyphSet const & glyphSet) {
   // Auto-release pool for temporary objects.
-  NS::AutoreleasePool *autoreleasePool = NS::AutoreleasePool::alloc()->init();
+  NS::AutoreleasePool * autoreleasePool = NS::AutoreleasePool::alloc()->init();
   METAL_GUARD(autoreleasePool);
 
   // Initialize shaders.
-  MTL::FunctionConstantValues *constantValues =
-      MTL::FunctionConstantValues::alloc()->init();
+  MTL::FunctionConstantValues * constantValues = MTL::FunctionConstantValues::alloc()->init();
   METAL_GUARD(constantValues);
 
-  NS::Error *error = nullptr;
-  MTL::Function *sdfGenerateFunction =
-      library->newFunction(STR("sdfGenerate"), constantValues, &error);
+  NS::Error * error = nullptr;
+  MTL::Function * sdfGenerateFunction =
+    library->newFunction(STR("sdfGenerate"), constantValues, &error);
   CHECK_AND_RETURN(error, nullptr);
   METAL_GUARD(sdfGenerateFunction);
 
-  MTL::Function *sdfWriteTextureFunction =
-      library->newFunction(STR("sdfWriteTexture"), constantValues, &error);
+  MTL::Function * sdfWriteTextureFunction =
+    library->newFunction(STR("sdfWriteTexture"), constantValues, &error);
   CHECK_AND_RETURN(error, nullptr);
   METAL_GUARD(sdfWriteTextureFunction);
 
   // Create compute pipeline states.
-  auto sdfGeneratePipelineStateDescriptor =
-      MTL::ComputePipelineDescriptor::alloc()->init();
+  auto sdfGeneratePipelineStateDescriptor = MTL::ComputePipelineDescriptor::alloc()->init();
   METAL_GUARD(sdfGeneratePipelineStateDescriptor);
   sdfGeneratePipelineStateDescriptor->setComputeFunction(sdfGenerateFunction);
   sdfGeneratePipelineStateDescriptor->setSupportIndirectCommandBuffers(true);
 
-  MTL::ComputePipelineState *sdfGeneratePipelineState =
-      device->newComputePipelineState(sdfGeneratePipelineStateDescriptor,
-                                      MTL::PipelineOptionNone, nullptr, &error);
+  MTL::ComputePipelineState * sdfGeneratePipelineState =
+    device->newComputePipelineState(sdfGeneratePipelineStateDescriptor,
+                                    MTL::PipelineOptionNone,
+                                    nullptr,
+                                    &error);
   CHECK_AND_RETURN(error, nullptr);
   METAL_GUARD(sdfGeneratePipelineState);
 
-  MTL::ComputePipelineState *sdfWriteTexturePipelineState =
-      device->newComputePipelineState(sdfWriteTextureFunction, &error);
+  MTL::ComputePipelineState * sdfWriteTexturePipelineState =
+    device->newComputePipelineState(sdfWriteTextureFunction, &error);
   CHECK_AND_RETURN(error, nullptr);
   METAL_GUARD(sdfWriteTexturePipelineState);
 
-  auto const &glyphs = glyphSet.getGlyphs();
+  auto const & glyphs = glyphSet.getGlyphs();
 
   // Calculate line buffer size and offsets.
   uint32_t linesBufferSize = 0;
   std::unordered_map<uint16_t, uint32_t> lineOffsets;
-  for (auto const &[glyph, glyphData] : glyphs) {
+  for (auto const & [glyph, glyphData] : glyphs) {
     if (glyphData.m_lines.empty()) {
       continue;
     }
     lineOffsets[glyph] = linesBufferSize;
-    assert(glyphData.m_lines.size() <
-           std::numeric_limits<uint32_t>::max() - linesBufferSize);
+    METAL_ASSERT(glyphData.m_lines.size() < std::numeric_limits<uint32_t>::max() - linesBufferSize);
     linesBufferSize += static_cast<uint32_t>(glyphData.m_lines.size());
   }
 
   // Return default 1x1 black texture.
   if (linesBufferSize == 0) {
-    MTL::TextureDescriptor *descriptor =
-        MTL::TextureDescriptor::alloc()->init();
+    MTL::TextureDescriptor * descriptor = MTL::TextureDescriptor::alloc()->init();
     descriptor->setTextureType(MTL::TextureType2D);
     descriptor->setPixelFormat(MTL::PixelFormatR8Unorm);
     descriptor->setWidth(1);
@@ -107,21 +105,20 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
     descriptor->setUsage(MTL::TextureUsageShaderRead);
     METAL_GUARD(descriptor);
 
-    MTL::Texture *t = device->newTexture(descriptor);
+    MTL::Texture * t = device->newTexture(descriptor);
     uint8_t val = 0;
     t->replaceRegion(MTL::Region::Make2D(0, 0, 1, 1), 0, 0, &val, 1, 1);
     return t;
   }
 
   // Create and fill lines buffer.
-  assert(linesBufferSize <
-         std::numeric_limits<uint32_t>::max() / sizeof(glm::vec4));
-  MTL::Buffer *linesBuffer = device->newBuffer(
-      linesBufferSize * sizeof(glm::vec4), MTL::ResourceStorageModeShared);
+  METAL_ASSERT(linesBufferSize < std::numeric_limits<uint32_t>::max() / sizeof(glm::vec4));
+  MTL::Buffer * linesBuffer =
+    device->newBuffer(linesBufferSize * sizeof(glm::vec4), MTL::ResourceStorageModeShared);
   METAL_GUARD(linesBuffer);
 
   auto contentPtr = static_cast<uint8_t *>(linesBuffer->contents());
-  for (auto const &[glyph, glyphData] : glyphs) {
+  for (auto const & [glyph, glyphData] : glyphs) {
     if (glyphData.m_lines.empty()) {
       continue;
     }
@@ -131,28 +128,26 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
   }
 
   // Initialize output buffers.
-  auto const &atlasSize = glyphSet.getAtlasSize();
+  auto const & atlasSize = glyphSet.getAtlasSize();
   auto const outBufferSize = atlasSize.x * atlasSize.y;
-  MTL::Buffer *outMinDistance = device->newBuffer(
-      outBufferSize * sizeof(int), MTL::ResourceStorageModeShared);
+  MTL::Buffer * outMinDistance =
+    device->newBuffer(outBufferSize * sizeof(int), MTL::ResourceStorageModeShared);
   METAL_GUARD(outMinDistance);
 
-  auto outMinDistanceContentPtr =
-      static_cast<int *>(outMinDistance->contents());
+  auto outMinDistanceContentPtr = static_cast<int *>(outMinDistance->contents());
 
-  MTL::Buffer *outIntersectionNumber = device->newBuffer(
-      outBufferSize * sizeof(uint32_t), MTL::ResourceStorageModeShared);
+  MTL::Buffer * outIntersectionNumber =
+    device->newBuffer(outBufferSize * sizeof(uint32_t), MTL::ResourceStorageModeShared);
   METAL_GUARD(outIntersectionNumber);
 
-  auto outIntersectionNumberContentPtr =
-      static_cast<uint32_t *>(outIntersectionNumber->contents());
+  auto outIntersectionNumberContentPtr = static_cast<uint32_t *>(outIntersectionNumber->contents());
   for (uint32_t i = 0; i < outBufferSize; ++i) {
     outMinDistanceContentPtr[i] = std::numeric_limits<int>::max();
     outIntersectionNumberContentPtr[i] = 0;
   }
 
   // Initialize textures over output buffers.
-  MTL::TextureDescriptor *descriptor = MTL::TextureDescriptor::alloc()->init();
+  MTL::TextureDescriptor * descriptor = MTL::TextureDescriptor::alloc()->init();
   descriptor->setTextureType(MTL::TextureType2D);
   descriptor->setPixelFormat(MTL::PixelFormatR32Sint);
   descriptor->setWidth(atlasSize.x);
@@ -162,36 +157,35 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
   descriptor->setUsage(MTL::TextureUsageShaderRead);
   METAL_GUARD(descriptor);
 
-  MTL::Texture *minDistanceTexture =
-      outMinDistance->newTexture(descriptor, 0, atlasSize.x * sizeof(int));
+  MTL::Texture * minDistanceTexture =
+    outMinDistance->newTexture(descriptor, 0, atlasSize.x * sizeof(int));
   METAL_GUARD(minDistanceTexture);
 
   descriptor->setPixelFormat(MTL::PixelFormatR32Uint);
-  MTL::Texture *intersectionNumberTexture = outIntersectionNumber->newTexture(
-      descriptor, 0, atlasSize.x * sizeof(uint32_t));
+  MTL::Texture * intersectionNumberTexture =
+    outIntersectionNumber->newTexture(descriptor, 0, atlasSize.x * sizeof(uint32_t));
   METAL_GUARD(intersectionNumberTexture);
 
   // Initialize output texture.
   descriptor->setPixelFormat(MTL::PixelFormatR8Unorm);
   descriptor->setStorageMode(MTL::StorageModePrivate);
-  descriptor->setUsage(MTL::TextureUsageShaderRead |
-                       MTL::TextureUsageShaderWrite);
-  MTL::Texture *outputTexture = device->newTexture(descriptor);
+  descriptor->setUsage(MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite);
+  MTL::Texture * outputTexture = device->newTexture(descriptor);
   outputTexture->setLabel(STR("SDF Glyphs Texture"));
 
   auto const simdGroupSize =
-      static_cast<uint32_t>(sdfGeneratePipelineState->threadExecutionWidth());
-  auto const maxThreadsInGroup = static_cast<uint32_t>(
-      sdfGeneratePipelineState->maxTotalThreadsPerThreadgroup());
+    static_cast<uint32_t>(sdfGeneratePipelineState->threadExecutionWidth());
+  auto const maxThreadsInGroup =
+    static_cast<uint32_t>(sdfGeneratePipelineState->maxTotalThreadsPerThreadgroup());
 
   // Thread group memory size (must be a multiple of 16 bytes).
   // Please check shader, we need one float per SIMD-group in the thread group
   // memory.
   auto const maxSimdInThreadGroup = maxThreadsInGroup / simdGroupSize;
   auto const minDistThreadGroupMemorySize =
-      utils::getAligned(maxSimdInThreadGroup * sizeof(float), 16);
+    utils::getAligned(maxSimdInThreadGroup * sizeof(float), 16);
   auto const iNumThreadGroupMemorySize =
-      utils::getAligned(maxSimdInThreadGroup * sizeof(uint32_t), 16);
+    utils::getAligned(maxSimdInThreadGroup * sizeof(uint32_t), 16);
 
   auto commandBuffer = commandQueue->commandBuffer();
   auto encoder = commandBuffer->computeCommandEncoder();
@@ -199,7 +193,7 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
 
   // Fill indirect buffers.
   uint32_t indirectBufferSize = 0;
-  for (auto const &[_, glyphData] : glyphs) {
+  for (auto const & [_, glyphData] : glyphs) {
     if (glyphData.m_lines.empty()) {
       continue;
     }
@@ -210,25 +204,22 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
   }
 
   auto icbDescriptor = MTL::IndirectCommandBufferDescriptor::alloc()->init();
-  icbDescriptor->setCommandTypes(
-      MTL::IndirectCommandTypeConcurrentDispatchThreads);
+  icbDescriptor->setCommandTypes(MTL::IndirectCommandTypeConcurrentDispatchThreads);
   icbDescriptor->setInheritBuffers(false);
   icbDescriptor->setInheritPipelineState(true);
   icbDescriptor->setMaxKernelBufferBindCount(4);
   METAL_GUARD(icbDescriptor);
 
-  auto icb =
-      device->newIndirectCommandBuffer(icbDescriptor, indirectBufferSize, 0);
+  auto icb = device->newIndirectCommandBuffer(icbDescriptor, indirectBufferSize, 0);
   METAL_GUARD(icb);
 
-  MTL::Buffer *paramsBuffer =
-      device->newBuffer(indirectBufferSize * sizeof(SdfGenParams),
-                        MTL::ResourceStorageModeShared);
+  MTL::Buffer * paramsBuffer =
+    device->newBuffer(indirectBufferSize * sizeof(SdfGenParams), MTL::ResourceStorageModeShared);
   METAL_GUARD(paramsBuffer);
   auto paramsBufferPtr = static_cast<SdfGenParams *>(paramsBuffer->contents());
 
   uint32_t indirectBufferIndex = 0;
-  for (auto const &[glyph, glyphData] : glyphs) {
+  for (auto const & [glyph, glyphData] : glyphs) {
     if (glyphData.m_lines.empty()) {
       continue;
     }
@@ -247,8 +238,7 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
 
         auto icbCommand = icb->indirectComputeCommand(indirectBufferIndex);
         icbCommand->setKernelBuffer(linesBuffer, 0, SdfGenBufferLines);
-        icbCommand->setKernelBuffer(outMinDistance, offset * sizeof(int),
-                                    SdfGenBufferMinDistance);
+        icbCommand->setKernelBuffer(outMinDistance, offset * sizeof(int), SdfGenBufferMinDistance);
         icbCommand->setKernelBuffer(outIntersectionNumber,
                                     offset * sizeof(uint32_t),
                                     SdfGenBufferIntersectionNumber);
@@ -258,20 +248,19 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
 
         icbCommand->setThreadgroupMemoryLength(minDistThreadGroupMemorySize,
                                                SdfGenSharedMemoryMinDistance);
-        icbCommand->setThreadgroupMemoryLength(
-            iNumThreadGroupMemorySize, SdfGenSharedMemoryIntersectionNumber);
+        icbCommand->setThreadgroupMemoryLength(iNumThreadGroupMemorySize,
+                                               SdfGenSharedMemoryIntersectionNumber);
 
         // We do the first stage of reduction on load, so we need up to 2x less
         // threads.
-        auto const threadsCount = std::max(
-            nextPowerOf2(static_cast<uint32_t>(glyphData.m_lines.size()) / 2),
-            simdGroupSize);
-        auto const threadsInGroup = std::min(
-            utils::getAligned(threadsCount, simdGroupSize), maxThreadsInGroup);
+        auto const threadsCount =
+          std::max(nextPowerOf2(static_cast<uint32_t>(glyphData.m_lines.size()) / 2),
+                   simdGroupSize);
+        auto const threadsInGroup =
+          std::min(utils::getAligned(threadsCount, simdGroupSize), maxThreadsInGroup);
 
-        icbCommand->concurrentDispatchThreads(
-            MTL::Size::Make(threadsCount, 1, 1),
-            MTL::Size::Make(threadsInGroup, 1, 1));
+        icbCommand->concurrentDispatchThreads(MTL::Size::Make(threadsCount, 1, 1),
+                                              MTL::Size::Make(threadsInGroup, 1, 1));
         indirectBufferIndex++;
       }
     }
@@ -281,26 +270,22 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
   encoder->setComputePipelineState(sdfGeneratePipelineState);
   encoder->useResource(linesBuffer, MTL::ResourceUsageRead);
   encoder->useResource(paramsBuffer, MTL::ResourceUsageRead);
-  encoder->useResource(outMinDistance,
-                       MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
-  encoder->useResource(outIntersectionNumber,
-                       MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
+  encoder->useResource(outMinDistance, MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
+  encoder->useResource(outIntersectionNumber, MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
 
   uint32_t constexpr kMaxCommands = 8192;
   for (uint32_t start = 0; start < indirectBufferSize; start += kMaxCommands) {
     encoder->executeCommandsInBuffer(
-        icb, NS::Range::Make(
-                 start, std::min(indirectBufferSize - start, kMaxCommands)));
+      icb,
+      NS::Range::Make(start, std::min(indirectBufferSize - start, kMaxCommands)));
   }
 
   // Run compute shader to write output SDF texture.
   encoder->setComputePipelineState(sdfWriteTexturePipelineState);
   encoder->setTexture(minDistanceTexture, SdfTextureInMinDistance);
-  encoder->setTexture(intersectionNumberTexture,
-                      SdfTextureInIntersectionNumber);
+  encoder->setTexture(intersectionNumberTexture, SdfTextureInIntersectionNumber);
   encoder->setTexture(outputTexture, SdfTextureOut);
-  encoder->dispatchThreads(MTL::Size::Make(atlasSize.x, atlasSize.y, 1),
-                           MTL::Size::Make(8, 8, 1));
+  encoder->dispatchThreads(MTL::Size::Make(atlasSize.x, atlasSize.y, 1), MTL::Size::Make(8, 8, 1));
 
   encoder->endEncoding();
   commandBuffer->commit();
@@ -308,4 +293,4 @@ MTL::Texture *GlyphTexture::generate(MTL::Device *device, MTL::Library *library,
 
   return outputTexture;
 }
-} // namespace sdf::gpu
+}  // namespace sdf::gpu

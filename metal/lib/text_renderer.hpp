@@ -26,26 +26,28 @@ namespace sdf::gpu {
 class TextRenderer {
 public:
   ~TextRenderer();
-  bool initialize(MTL::Device *device, MTL::Library *library);
+  bool initialize(MTL::Device * const device, MTL::Library * library);
 
   void beginLayouting();
-  void addText(std::string const &s, glm::vec2 const &leftTop,
-               glm::vec2 const &size, glm::vec4 const &color,
-               GlyphSet const &glyphSet);
-  void endLayouting(MTL::Device *device);
+  void addText(std::string const & s,
+               glm::vec2 const & leftTop,
+               glm::vec2 const & size,
+               glm::vec4 const & color,
+               GlyphSet const & glyphSet);
+  void endLayouting(MTL::Device * const device);
 
-  void render(glm::vec2 const &screenSize,
-              MTL::RenderCommandEncoder *commandEncoder,
-              MTL::Texture *glyphTexture);
+  void render(glm::vec2 const & screenSize,
+              MTL::RenderCommandEncoder * commandEncoder,
+              MTL::Texture * glyphTexture);
 
 private:
-  MTL::Buffer *m_glyphBuffer = nullptr;
+  MTL::Buffer * m_glyphBuffer = nullptr;
   uint32_t m_glyphBufferSize = 0;
-  MTL::RenderPipelineState *m_pipelineState = nullptr;
+  MTL::RenderPipelineState * m_pipelineState = nullptr;
 
   std::vector<Glyph> m_screenGlyphs;
   size_t m_screenGlyphsHash = 0;
   size_t m_prevScreenGlyphsHash = 0;
 };
 
-} // namespace sdf::gpu
+}  // namespace sdf::gpu

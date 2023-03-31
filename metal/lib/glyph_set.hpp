@@ -26,8 +26,9 @@ class GlyphSet {
 public:
   static uint32_t constexpr kBorderInPixels = 4;
 
-  explicit GlyphSet(std::vector<uint16_t> const &unicodeGlyphs,
-                    uint32_t baseAtlasSize = 256, uint32_t baseFontSize = 48);
+  explicit GlyphSet(std::vector<uint16_t> const & unicodeGlyphs,
+                    uint32_t baseAtlasSize = 256,
+                    uint32_t baseFontSize = 48);
 
   struct GlyphData {
     std::vector<glm::vec4> m_lines;
@@ -37,8 +38,8 @@ public:
     glm::uvec2 m_pixelSize;
     glm::uvec2 m_posInAtlas;
   };
-  auto const &getGlyphs() const { return m_glyphs; }
-  glm::uvec2 const &getAtlasSize() const { return m_atlasSize; }
+  auto const & getGlyphs() const { return m_glyphs; }
+  glm::uvec2 const & getAtlasSize() const { return m_atlasSize; }
 
 private:
   void packGlyphsToAtlas(uint32_t atlasSize);
@@ -47,4 +48,4 @@ private:
   glm::uvec2 m_atlasSize;
 };
 
-} // namespace sdf
+}  // namespace sdf

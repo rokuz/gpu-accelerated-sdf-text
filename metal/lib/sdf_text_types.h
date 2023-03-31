@@ -59,9 +59,7 @@ typedef enum TextRenderBuffer {
   TextRenderBufferGlyphs
 } TextRenderBuffer;
 
-typedef enum TextRenderTexture {
-  TextRenderTextureGlyphs = 0
-} TextRenderTexture;
+typedef enum TextRenderTexture { TextRenderTextureGlyphs = 0 } TextRenderTexture;
 
 typedef struct FrameData {
   matrix_float4x4 projection;

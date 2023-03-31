@@ -22,9 +22,10 @@ namespace sdf::gpu {
 
 class GlyphTexture {
 public:
-  static MTL::Texture *generate(MTL::Device *device, MTL::Library *library,
-                                MTL::CommandQueue *commandQueue,
-                                GlyphSet const &glyphSet);
+  static MTL::Texture * generate(MTL::Device * const device,
+                                 MTL::CommandQueue * const commandQueue,
+                                 MTL::Library * library,
+                                 GlyphSet const & glyphSet);
 };
 
-} // namespace sdf::gpu
+}  // namespace sdf::gpu
