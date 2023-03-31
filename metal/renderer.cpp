@@ -1,4 +1,4 @@
-// Copyright © 2022 Roman Kuznetsov.
+// Copyright © 2023 Roman Kuznetsov.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,31 +17,15 @@
 #include <chrono>
 
 #include "common/utils.hpp"
-#include "lib/glyph_texture.hpp"
 
 App * getApp() {
   static Renderer app;
   return &app;
 }
 
-char const * const kDemoName = "GPU Accelerated SDF Text";
+char const * const kDemoName = "New fancy Metal demo";
 
-namespace {
-uint32_t constexpr kMaxFramesInFlight = 3;
-
-std::vector<uint16_t> enumerateGlyphs() {
-  static std::string const kGlyphs =
-    "abcdefghijklmnopqrstuvwxyz "
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ-?!,.:;0123456789()@";
-  std::vector<uint16_t> v(kGlyphs.size());
-  for (size_t i = 0; i < kGlyphs.size(); ++i) {
-    v[i] = kGlyphs[i];
-  }
-  return v;
-}
-}  // namespace
-
-Renderer::Renderer() : m_glyphs(enumerateGlyphs()) {}
+Renderer::Renderer() {}
 
 char const * const Renderer::getName() const { return kDemoName; }
 
@@ -54,28 +38,7 @@ bool Renderer::onInitialize(MTL::Device * const device,
   m_context = std::unique_ptr<MetalContext>(new MetalContext{device, commandQueue});
   m_screenWidth = screenWidth;
   m_screenHeight = screenHeight;
-
   m_gpuFamily = utils::getMetalGpuFamily(device);
-
-  NS::Error * error = nullptr;
-  auto libraryPath = NS::Bundle::mainBundle()->resourcePath()->stringByAppendingString(
-    STR("/gpu-accelerated-sdf-text-lib.metallib"));
-  m_library = m_context->m_device->newLibrary(libraryPath, &error);
-  CHECK_AND_RETURN(error, false);
-  METAL_ASSERT(m_library != 0);
-
-  auto t1 = std::chrono::steady_clock::now();
-  m_glyphTexture = sdf::gpu::GlyphTexture::generate(m_context->m_device,
-                                                    m_context->m_commandQueue,
-                                                    m_library,
-                                                    m_glyphs);
-  auto const duration = std::chrono::steady_clock::now() - t1;
-  m_glyphGenTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-
-  m_textRenderer = std::make_unique<sdf::gpu::TextRenderer>();
-  if (!m_textRenderer->initialize(m_context->m_device, m_library)) {
-    return false;
-  }
 
   return true;
 }
@@ -84,14 +47,6 @@ void Renderer::onDeinitialize() {
   auto commandBuffer = m_context->m_commandQueue->commandBuffer();
   commandBuffer->commit();
   commandBuffer->waitUntilCompleted();
-
-  if (m_glyphTexture) {
-    m_glyphTexture->release();
-  }
-
-  m_textRenderer.reset();
-
-  m_library->release();
 }
 
 void Renderer::onResize(uint32_t screenWidth, uint32_t screenHeight) {
@@ -105,38 +60,10 @@ void Renderer::renderFrame(MTL::CommandBuffer * frameCommandBuffer,
   NS::AutoreleasePool * autoreleasePool = NS::AutoreleasePool::alloc()->init();
   METAL_GUARD(autoreleasePool);
 
-  m_textRenderer->beginLayouting();
-
-  auto const screenSz = glm::vec2(m_screenWidth, m_screenHeight);
-
-  // Some content.
-  {
-    auto sz = glm::vec2(400, 200);
-    m_textRenderer->addText("This text is rendered by",
-                            glm::vec2(screenSz - sz) * 0.5f + screenSz * glm::vec2(-0.25f, 0.1f),
-                            sz,
-                            glm::vec4(0.1f, 0.1f, 0.1f, 1.0f),
-                            m_glyphs);
-    sz = glm::vec2(600, 200);
-    m_textRenderer->addText("GPU Accelerated SDF algorithm",
-                            glm::vec2(screenSz - sz) * 0.5f,
-                            sz,
-                            glm::vec4(0.5f, 0.1f, 0.1f, 1.0f),
-                            m_glyphs);
-    sz = glm::vec2(200, 200);
-    m_textRenderer->addText("written by @rokuz",
-                            glm::vec2(screenSz - sz) * 0.5f + screenSz * glm::vec2(0.25f, -0.1f),
-                            sz,
-                            glm::vec4(0.1f, 0.1f, 0.1f, 1.0f),
-                            m_glyphs);
-  }
-
-  m_textRenderer->endLayouting(m_context->m_device);
-
   auto renderPassDescriptor = MTL::RenderPassDescriptor::renderPassDescriptor();
   auto colorAttachment = renderPassDescriptor->colorAttachments()->object(0);
   colorAttachment->setTexture(outputTexture);
-  colorAttachment->setClearColor(MTL::ClearColor::Make(0.9, 0.9, 0.9, 1.0));
+  colorAttachment->setClearColor(MTL::ClearColor::Make(0.1, 0.1, 0.1, 1.0));
   colorAttachment->setLoadAction(MTL::LoadAction::LoadActionClear);
   colorAttachment->setStoreAction(MTL::StoreAction::StoreActionStore);
 
@@ -144,9 +71,7 @@ void Renderer::renderFrame(MTL::CommandBuffer * frameCommandBuffer,
     frameCommandBuffer->renderCommandEncoder(renderPassDescriptor);
   encoder->setLabel(STR("Main Command Encoder"));
 
-  encoder->pushDebugGroup(STR("Encode Text Rendering"));
-  m_textRenderer->render(glm::vec2(m_screenWidth, m_screenHeight), encoder, m_glyphTexture);
-  encoder->popDebugGroup();
+  // TODO: put your rendering code here.
 
   app::renderImGui(frameCommandBuffer, renderPassDescriptor, encoder, [=, this](ImGuiIO & io) {
     m_fpsTimer += (1.0 / io.Framerate);
@@ -163,7 +88,6 @@ void Renderer::renderFrame(MTL::CommandBuffer * frameCommandBuffer,
     ImGui::Begin("Info & Controls");
     ImGui::Text("Device: %s", m_context->m_device->name()->utf8String());
     ImGui::Text("GPU Family: %s", m_gpuFamily.c_str());
-    ImGui::Text("SDF texture gen time: %llu ms", m_glyphGenTimeMs);
     ImGui::Text("Avg time frame = %.3f ms (%.1f FPS)",
                 m_fps == 0 ? 0.0f : (1000.0f / m_fps),
                 m_fps);

@@ -1,4 +1,4 @@
-// Copyright © 2022 Roman Kuznetsov.
+// Copyright © 2023 Roman Kuznetsov.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
 
 #pragma once
 
-#include <memory>
-
 #include "common/app.hpp"
-#include "lib/glyph_set.hpp"
-#include "lib/text_renderer.hpp"
+
+#include <cstdint>
+#include <string>
 
 class Renderer : public App {
 public:
@@ -39,9 +38,6 @@ public:
                    double elapsedSeconds) override;
 
 private:
-  sdf::GlyphSet m_glyphs;
-  std::unique_ptr<sdf::gpu::TextRenderer> m_textRenderer;
-
   struct MetalContext {
     MTL::Device * const m_device;
     MTL::CommandQueue * const m_commandQueue;
@@ -50,11 +46,8 @@ private:
   uint32_t m_screenWidth = 0;
   uint32_t m_screenHeight = 0;
 
-  MTL::Library * m_library = nullptr;
-  MTL::Texture * m_glyphTexture = nullptr;
-
+  // Info & Controls.
   std::string m_gpuFamily;
-  uint64_t m_glyphGenTimeMs = 0.0;
   double m_fpsTimer = 0.0;
   uint32_t m_frameCounter = 0;
   double m_fps = 0.0;
