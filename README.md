@@ -1,6 +1,6 @@
 ## GPU Accelerated SDF Text
 
-<img width="752" alt="demo" src="https://user-images.githubusercontent.com/5437220/228777831-dbee1dad-5464-4ae7-8dca-177211bcf507.png">
+<img width="752" alt="demo" src="https://user-images.githubusercontent.com/5437220/229192598-8f09e868-2dee-4b7a-9b6b-6b8cbd463355.png">
 
 # How to generate XCode project
 ```
