@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 
 project(gpu-accelerated-sdf-text)
 
-include("./3party/metal-cpp-rendering-boilerplate/dependencies.cmake")
+include("./deps/metal-cpp-rendering-boilerplate/dependencies.cmake")
 
-include_metal_cpp_rendering_boilerplate("./3party/metal-cpp-rendering-boilerplate")
+include_metal_cpp_rendering_boilerplate("./deps/metal-cpp-rendering-boilerplate")
 
 add_subdirectory(lib)
 

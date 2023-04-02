@@ -46,7 +46,7 @@ private:
   std::unique_ptr<MetalContext> m_context;
   uint32_t m_screenWidth = 0;
   uint32_t m_screenHeight = 0;
-  
+
   sdf::GlyphSet m_glyphs;
   std::unique_ptr<sdf::gpu::TextRenderer> m_textRenderer;
 

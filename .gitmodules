@@ -1,3 +1,3 @@
-[submodule "metal/3party/metal-cpp-rendering-boilerplate"]
-	path = metal/3party/metal-cpp-rendering-boilerplate
+[submodule "metal/deps/metal-cpp-rendering-boilerplate"]
+	path = metal/deps/metal-cpp-rendering-boilerplate
 	url = https://github.com/rokuz/metal-cpp-rendering-boilerplate
