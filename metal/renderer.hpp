@@ -14,10 +14,11 @@
 
 #pragma once
 
-#include "common/app.hpp"
+#include <memory>
 
-#include <cstdint>
-#include <string>
+#include "common/app.hpp"
+#include "lib/glyph_set.hpp"
+#include "lib/text_renderer.hpp"
 
 class Renderer : public App {
 public:
@@ -45,9 +46,16 @@ private:
   std::unique_ptr<MetalContext> m_context;
   uint32_t m_screenWidth = 0;
   uint32_t m_screenHeight = 0;
+  
+  sdf::GlyphSet m_glyphs;
+  std::unique_ptr<sdf::gpu::TextRenderer> m_textRenderer;
+
+  MTL::Library * m_library = nullptr;
+  MTL::Texture * m_glyphTexture = nullptr;
 
   // Info & Controls.
   std::string m_gpuFamily;
+  uint64_t m_glyphGenTimeMs = 0.0;
   double m_fpsTimer = 0.0;
   uint32_t m_frameCounter = 0;
   double m_fps = 0.0;
